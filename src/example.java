@@ -102,6 +102,7 @@ public class example {
 		}
 
 		rG.createPacket(0);
+		rG.createPacket(0);
 
 		for (int i = 0; i < 30; i ++) {
 			tock();

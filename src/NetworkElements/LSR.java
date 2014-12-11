@@ -14,7 +14,7 @@ public class LSR{
 	private TreeMap<Integer, NICLabelPair> LabeltoLabelIP = new TreeMap<Integer, NICLabelPair>(); // a map of input VC to output nic and new VC number
 	private HashMap<OpticalLabel, NICOptPair> LabeltoLabelOpt = new HashMap<OpticalLabel, NICOptPair>(); // a map of input VC to output nic and new VC number
 	private TreeMap<Integer, destLabelPair> LabeltoDestLabel = new TreeMap<Integer, destLabelPair>();
-	private HashMap<OpticalLabel, destOptPair> LabeltoDestOpt = new HashMap<OpticalLabel, destOptPair>();
+	//private HashMap<OpticalLabel, destOptPair> LabeltoDestOpt = new HashMap<OpticalLabel, destOptPair>();
 
 	//private TreeMap<Integer, NICLabelPair> LabeltoLabelOpt = new TreeMap<Integer, NICLabelPair>(); // a map of input VC to output nic and new VC number
 	private HashMap<Integer, Integer> destToLabel = new HashMap<Integer, Integer>();
@@ -26,6 +26,7 @@ public class LSR{
 	boolean trace = true;
 	private int traceID = (int) (Math.random() * 100000); // create a random trace id for cells
 	private boolean displayCommands = true;
+	private int time = -1;
 
 
 	/**
@@ -90,14 +91,19 @@ public class LSR{
 			}
 			this.isStart = false;
 		}
-		System.out.println("Router addr: " + this.address);
-		//this.printSwitchingTable();
+		if (trace) {
+			//System.out.println("Router addr: " + this.address);
+			//this.printSwitchingTable();
 
-		System.out.println("packet: " + currentPacket.getSource() + ", " + currentPacket.getDest());
-		System.out.println("\tOAM: " + currentPacket.isOAM());
+			//System.out.println("packet: " + currentPacket.getSource() + ", " + currentPacket.getDest());
+			//System.out.println("\tOAM: " + currentPacket.isOAM());
+		}
+
 		if (currentPacket.isOAM())
 		{
-			System.out.println("\tOAM: " + currentPacket.getOAMMsg() + ", " + currentPacket.getOpticalLabel().toString() + ", " + currentPacket.getLabel());
+			if (trace) {
+				//System.out.println("\tOAM: " + currentPacket.getOAMMsg() + ", " + currentPacket.getOpticalLabel().toString() + ", " + currentPacket.getLabel());
+			}
 			int toAddress = currentPacket.getDest();
 
 			// Receive PATH message
@@ -111,6 +117,14 @@ public class LSR{
 						int outLabel = currentPacket.getLabel();
 						this.LabeltoLabelIP.put(inLabel, new NICLabelPair(nic, -1));	// ######################
 						this.LabeltoLabelIP.put(-1, new NICLabelPair(nic, outLabel));	// ########################
+
+						System.out.println("Time: " + time + ", LSR " + this.address +
+								", ROUTE ADD, Input: PSI\\" + nic.getNextLSR().getAddress() + "\\" + inLabel +
+								", Output: PSI\\IP\\-1");
+						System.out.println("Time: " + time + ", LSR " + this.address +
+								", ROUTE ADD, Input: PSI\\" + nic.getNextLSR().getAddress() + "\\-1" +
+								", Output: PSI\\IP\\" + outLabel);
+
 						this.LabeltoDestLabel.put(inLabel, new destLabelPair(this.address, -1));
 						this.LabeltoDestLabel.put(-1, new destLabelPair(currentPacket.getSource(), outLabel));
 
@@ -129,6 +143,9 @@ public class LSR{
 							int inLabel = this.getAvailableIPLabel();
 							int outLabel = currentPacket.getLabel();
 							this.LabeltoLabelIP.put(inLabel, new NICLabelPair(outNIC, outLabel));
+							System.out.println("Time: " + time + ", LSR " + this.address +
+									", ROUTE ADD, Input: PSI\\" + nic.getNextLSR().getAddress() + "\\" + inLabel +
+									", Output: PSI\\" + outNIC.getNextLSR().getAddress() + "\\" + outLabel);
 							this.LabeltoDestLabel.put(inLabel, new destLabelPair(toAddress, outLabel));
 							Packet path = new Packet(currentPacket.getSource(), currentPacket.getDest(), inLabel);
 							path.setOAM(true, "PATH");
@@ -160,7 +177,11 @@ public class LSR{
 					this.sourceDestToLabel.put(new sourceDestPair(currentPacket.getSource(), currentPacket.getDest()), outLabelIP);
 
 					OpticalLabel inLabelOpt = this.getAvailableOptLabel();
-					this.LabeltoLabelOpt.put(inLabelOpt, new NICOptPair(outOptNIC, OpticalLabel.NA));	// ##################
+					this.LabeltoLabelOpt.put(inLabelOpt, new NICOptPair(nic, OpticalLabel.NA));	// ##################
+					System.out.println("Time: " + time + ", LSR " + this.address +
+							", ROUTE ADD, Input: LSI\\" + outOptNIC.getNextLSR().getAddress() + "\\" + inLabelOpt +
+							", Output: LSI\\" + nic.getNextLSR().getAddress() + "\\" + "NA");
+
 					Packet path = new Packet(currentPacket.getSource(), currentPacket.getDest(), inLabelOpt);
 					path.setOAM(true, "PATH");
 					path.setTraceID(this.getTraceID());
@@ -180,6 +201,13 @@ public class LSR{
 						LSRNIC outIPNIC = this.nextHopIP.get(toAddress);
 						this.LabeltoLabelOpt.put(OpticalLabel.NA, new NICOptPair(nic, ulLabel));
 						this.LabeltoLabelOpt.put(dlLabel, new NICOptPair(outIPNIC, OpticalLabel.NA));
+						System.out.println("Time: " + time + ", LSR " + this.address +
+								", ROUTE ADD, Input: LSI\\" + outIPNIC.getNextLSR().getAddress() + "\\" + "NA" +
+								", Output: LSI\\" + nic.getNextLSR().getAddress() + "\\" + ulLabel.toString());
+						System.out.println("Time: " + time + ", LSR " + this.address +
+								", ROUTE ADD, Input: LSI\\" + nic.getNextLSR().getAddress() + "\\" + dlLabel.toString() +
+								", Output: LSI\\" + outIPNIC.getNextLSR().getAddress() + "\\" + OpticalLabel.NA.toString());
+
 						int nextPSCAddr = this.getNextPSCAddr(currentPacket.getSource());
 						this.destToOpt.put(nextPSCAddr, ulLabel);
 
@@ -197,6 +225,9 @@ public class LSR{
 						int inLabel = this.getAvailableIPLabel();
 						LSRNIC outNIC = this.nextHopIP.get(toAddress);
 						this.LabeltoLabelIP.put(inLabel, new NICLabelPair(outNIC, outLabel));
+						System.out.println("Time: " + time + ", LSR " + this.address +
+								", ROUTE ADD, Input: PSI\\" + nic.getNextLSR().getAddress() + "\\" + inLabel +
+								", Output: PSI\\" + outNIC.getNextLSR().getAddress() + "\\" + outLabel);
 
 						Packet path = new Packet(currentPacket.getSource(), currentPacket.getDest(), inLabel);
 						path.setOAM(true, "PATH");
@@ -216,6 +247,11 @@ public class LSR{
 						OpticalLabel inLabelOpt = this.getAvailableOptLabel();
 						OpticalLabel outLabelOpt = currentPacket.getOpticalLabel();
 						this.LabeltoLabelOpt.put(inLabelOpt, new NICOptPair(outOptNIC, outLabelOpt));	// ##################
+
+						System.out.println("Time: " + time + ", LSR " + this.address +
+								", ROUTE ADD, Input: LSI\\" + outIPNIC.getNextLSR().getAddress() + "\\" + inLabelOpt +
+								", Output: LSI\\" + outOptNIC.getNextLSR().getAddress() + "\\" + outLabelOpt);
+
 						Packet path = new Packet(currentPacket.getSource(), currentPacket.getDest(), inLabelOpt);
 						path.setOAM(true, "PATH");
 						path.setTraceID(this.getTraceID());
@@ -252,7 +288,16 @@ public class LSR{
 						//this.LabeltoLabelIP.put(inLabel, new NICLabelPair(outIPNIC, outLabel));
 						this.LabeltoLabelIP.put(inLabel, new NICLabelPair(sourceNIC, outLabel));
 
+						System.out.println("Time: " + time + ", LSR " + this.address +
+								", ROUTE ADD, Input: PSI\\" + outIPNIC.getNextLSR().getAddress() + "\\" + inLabel +
+								", Output: PSI\\" + sourceNIC.getNextLSR().getAddress() + "\\" + outLabel);
+
 						this.LabeltoLabelOpt.put(OpticalLabel.NA, new NICOptPair(outOptNIC, currentPacket.getOpticalLabel()));
+
+						System.out.println("Time: " + time + ", LSR " + this.address +
+								", ROUTE ADD, Input: LSI\\" + sourceNIC.getNextLSR().getAddress() + "\\" + OpticalLabel.NA.toString() +
+								", Output: LSI\\" + outOptNIC.getNextLSR().getAddress() + "\\" + currentPacket.getOpticalLabel());
+
 						//this.destToLabel.put(nextPSCAddr, currentPacket.getOpticalLabel());
 						//this.LabeltoDestOpt.put(OpticalLabel.NA, new destOptPair(nextPSCAddr, currentPacket.getOpticalLabel()));
 						this.destToOpt.put(nextPSCAddr, currentPacket.getOpticalLabel());
@@ -275,6 +320,10 @@ public class LSR{
 						int nextPSCAddr = this.getNextPSCAddr(currentPacket.getSource());
 						LSRNIC outOptNIC = this.nextHopOpt.get(nextPSCAddr);
 						this.LabeltoLabelOpt.put(inLabel, new NICOptPair(outOptNIC, outLabel));
+
+						System.out.println("Time: " + time + ", LSR " + this.address +
+								", ROUTE ADD, Input: LSI\\" + outIPNIC.getNextLSR().getAddress() + "\\" + inLabel.toString() +
+								", Output: LSI\\" + outOptNIC.getNextLSR().getAddress() + "\\" + outLabel.toString());
 
 						Packet resv = new Packet(currentPacket.getSource(), currentPacket.getDest(), inLabel);
 						resv.setOAM(true, "RESV");
@@ -299,6 +348,10 @@ public class LSR{
 							this.destToLabel.put(currentPacket.getSource(), outLabel);
 							this.LabeltoLabelIP.put(inLabel, new NICLabelPair(nic, outLabel));
 							//this.LabeltoLabel.put(outLabel, new NICLabelPair(nic, inLabel));
+
+							System.out.println("Time: " + time + ", LSR " + this.address +
+									", ROUTE ADD, Input: PSI\\" + "IP" + "\\" + inLabel +
+									", Output: PSI\\" + nic.getNextLSR().getAddress() + "\\" + outLabel);
 
 							// send RESVCONF
 							Packet conf = new Packet(currentPacket.getDest(), currentPacket.getSource(), currentPacket.getLabel());
@@ -333,6 +386,11 @@ public class LSR{
 							//LSRNIC outNIC = this.nextHopIP.get(currentPacket.getSource());
 							LSRNIC sendNIC = this.nextHopIP.get(currentPacket.getDest());
 							this.LabeltoLabelIP.put(inLabel, new NICLabelPair(nic, outLabel));
+
+							System.out.println("Time: " + time + ", LSR " + this.address +
+									", ROUTE ADD, Input: PSI\\" + sendNIC.getNextLSR().getAddress() + "\\" + inLabel +
+									", Output: PSI\\" + nic.getNextLSR().getAddress() + "\\" + outLabel);
+
 							Packet resv = new Packet(currentPacket.getSource(), currentPacket.getDest(), inLabel);
 							resv.setOAM(true, "RESV");
 							resv.setTraceID(this.getTraceID());
@@ -402,7 +460,9 @@ public class LSR{
 
 		// Normal packets
 		else {
-			System.out.println("\t" + currentPacket.getOpticalLabel() + ", " + currentPacket.getLabel());
+			if (trace) {
+				//System.out.println("\t" + currentPacket.getOpticalLabel() + ", " + currentPacket.getLabel());
+			}
 			LSRNIC outNIC;
 
 			// Normal PSC
@@ -417,7 +477,7 @@ public class LSR{
 				OpticalLabel outLabel = this.LabeltoLabelOpt.get(currentPacket.getOpticalLabel()).getLabel();
 				outNIC = this.LabeltoLabelOpt.get(currentPacket.getOpticalLabel()).getNIC();
 				currentPacket.setOpticalLabel(outLabel);
-				this.printSwitchingTable();
+				//this.printSwitchingTable();
 			}
 			// Ingress PSC/LSC
 			else if (nic.getNextLSR().isPsc()) {
@@ -433,22 +493,22 @@ public class LSR{
 				outNIC = this.LabeltoLabelIP.get(currentPacket.getLabel()).getNIC();
 				currentPacket.setOpticalLabel(OpticalLabel.NA);
 				currentPacket.setLabel(outLabel);
-				this.printSwitchingTable();
+				//this.printSwitchingTable();
 			}
 
 			if (outNIC != nic) {
 				outNIC.sendPacket(currentPacket, this);
 				if (this.trace) {
-					System.out.println("Sending packet " + currentPacket.getTraceID() + " from router " + this.getAddress() + " to " + currentPacket.getDest());
+					System.out.println("Sending packet from router " + this.getAddress() + " to " + currentPacket.getDest());
 
 				}
 			}
 			else {
 				if (trace) {
-					System.out.println("Packet " + currentPacket.getTraceID() + " reaches the end at " + this.getAddress());
+					System.out.println("Packet reaches the end at " + this.getAddress());
 				}
 			}
-			
+
 
 		}
 
@@ -489,10 +549,6 @@ public class LSR{
 		//DestDSCPPair pair = new DestDSCPPair(dest, DSCP);
 		LSRNIC nic = this.nextHopIP.get(dest);
 
-		if (this.address == 6) {
-			System.out.println("6");
-		}
-
 		if (this.destToLabel.containsKey(dest) && this.destToLabel.get(dest) != -1) {
 			int inLabel = this.destToLabel.get(dest);
 			//int outLabel = this.LabeltoLabelIP.get(inLabel).getLabel();
@@ -500,7 +556,7 @@ public class LSR{
 			newPacket.setLabel(inLabel);
 			nic.sendPacket(newPacket, this);
 			if (this.trace) {
-				System.out.println("Sending packet " + newPacket.getTraceID() + " from router " + this.getAddress());
+				System.out.println("Sending packet from router " + this.getAddress());
 			}
 		}
 
@@ -552,6 +608,7 @@ public class LSR{
 	 * @since 1.0
 	 */
 	public void receivePackets(){
+		time ++;
 		for(int i=0; i<this.nics.size(); i++)
 			this.nics.get(i).receivePackets();
 	}
@@ -803,26 +860,6 @@ public class LSR{
 	 * @param destAddr
 	 * @return
 	 */
-	/*private int getNextPSCAddr(int destAddr) {
-		LSRNIC outIPNIC = this.nextHopIP.get(destAddr);
-		int nextAddr = this.address;
-		int currentAddr = this.address;
-
-		while (GraphInfo.graphOpt.containsKey(nextAddr)) {
-			currentAddr = nextAddr;
-			ArrayList<Integer> neighbors = GraphInfo.graphIP.get(currentAddr);
-			ArrayList<LSRNIC> nics = GraphInfo.nicsIP.get(currentAddr);
-
-			for (int i = 0; i < neighbors.size(); i ++) {
-				if (nics.get(i).equals(outIPNIC)) {
-					nextAddr = neighbors.get(i);
-					break;
-				}
-			}
-		}
-
-		return currentAddr;
-	}*/
 	private int getNextPSCAddr(int destAddr) {
 		LSRNIC outIPNIC = this.nextHopIP.get(destAddr);
 		LSR nextLSR = outIPNIC.getNextLSR();
@@ -865,5 +902,30 @@ public class LSR{
 			System.out.println(inLabel.toString() + "\t" + this.LabeltoLabelOpt.get(inLabel).getNIC().getNextLSR().getAddress() + "\t" + this.LabeltoLabelOpt.get(inLabel).getLabel().toString());
 		}
 	}
+
+	/*private void printChangeLSI(OpticalLabel inOpt, OpticalLabel outOpt, ) {
+		System.out.print("Time: " + this.time + ", LSR " + this.address + ", Input: LSI\\");
+
+		System.out.print(this.address);		//#################
+
+		System.out.print("\\" + inOpt.toString() + ", Output: LSI\\");
+
+		System.out.print(this.address);
+
+		System.out.print("\\" + outOpt.toString() + "\n");
+
+	}
+
+	private void printChangePSI(int inLabel, int outLabel) {
+		System.out.print("Time: " + this.time + ", LSR " + this.address + ", Input: LSI\\");
+
+		System.out.print(this.address);		//#################
+
+		System.out.print("\\" + inLabel + ", Output: LSI\\");
+
+		System.out.print(this.address);
+
+		System.out.print("\\" + outLabel + "\n");
+	}*/
 
 }
